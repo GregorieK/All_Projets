@@ -1,0 +1,237 @@
+---
+title: "CEDARO report : Characterization of Plasmodium infections among inhabitants of rural areas in Gabon"
+subtitle: 'Characterization of plasmodium infections among inhabitants of rural areas in Gabon'
+
+output:
+  
+  pdf_document: default
+  html_document: default
+  number_sections: true
+
+---
+
+# Background
+
+The “CERMEL Data Repository” (CEDARO) aims to archive data of all research projects performed at
+CERMEL. A detailed description of the repository is available from the CEDARO team (cedaro@cermel.org).
+Before archiving, a codebook and an anonmyized dataset are generated. In addition, a basic statistical analysis
+is performed to ensure that the data in the publication corresponds to the submitted dataset. Typically, only
+data to ensure that the numbers of the basic characteristics of the study population and of the outcomes are correct. Rarely would effect sizes, regression models etc. be verified.
+A report comparing the original published results with that of the CEDARO analysis is generated and sent
+to the investigator who submitted the data set. The CEDARO team will follow-up on any descripancies to
+make sure that the analysis and data are valid.
+
+# Publication
+
+**Reference**
+
+Woldearegai TG, Lalremruata A, Nguyen TT, Gmeiner M, Veletzky L,
+Tazemda-Kuitsouc GB, Matsiegui PB, Mordmüller B, Held J. Characterization of
+Plasmodium infections among inhabitants of rural areas in Gabon. Sci Rep. 2019
+Jul 5;9(1):9784 
+
+DOI: 10.1038/s41598-019-46194-9
+
+PubMed PMID :  31278305
+
+PubMed-Central PMCID:  PMC6611864
+
+**Abstract**
+
+"Plasmodium infections in endemic areas are often asymptomatic, can be caused by different species and contribute significantly to transmission. We performed a cross-sectional study in February/March 2016 including 840 individuals  year living in rural Gabon (Ngounié and Moyen-Ogooué). Plasmodium parasitemia was measured by high-sensitive, real-time quantitative PCR. In a randomly chosen subset of P. falciparum infections, gametocyte carriage and prevalence of chloroquine-resistant genotypes were analysed. 618/834 (74%) 
+individuals $\ge$ 1 were positive for Plasmodium 18S-rRNA gene amplification, of these 553 (66.3%) carried P. falciparum, 193 (23%) P. malariae, 74 (8.9%) P. ovale curtisi and 38 (4.6%) P.ovale wallikeri. Non-falciparum infections mostly presented as mixed infections. P. malariae monoinfected individuals were significantly older (median age: 60 years) than coinfected (20 years) or P. falciparum monoinfected individuals (23 years). P. falciparum gametocyte carriage was confirmed in 109/223 (48.9%) individuals, prevalence of chloroquine-resistant genotypes was high (298/336, 89%), including four infections with a new SVMNK genotype. In rural Gabon, Plasmodium infections with all endemic species are frequent, emphasizing that malaria control efforts shall cover asymptomatic infections also including non-falciparum infections when aiming for eradication."
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+
+
+library(dplyr)
+library(readxl)
+library(stringr)
+library(knitr)
+
+
+```
+# Analysis
+
+"Further analysis by qPCR revealed an unexpected complexity of
+infections and high prevalence of non-falciparum coinfections. In total 618/834 (74%) individuals were positive for 18 S plasmodial DNA, of these 553 (66.3%) were positive for P. falciparum, 193 (23%) for P. malariae,
+74 (8.9%) for P. ovale curtisi and 38 (4.6%) for P. ovale wallikeri. Parasitemia of individuals decreased with age
+(p<0.0001). Number of parasites per microliter was calculated with the help of a standard curve. The parasitemia of P. malariae positive individuals also decreased with age (p<0.0001). However, these data should
+not be over-interpreted as species-specific PCR was done after preamplification.
+Most non-falciparum infections presented as mixed infections with P. falciparum. In five individuals, all four prevalent species were found at the same time. The different combinations of infections can be seen in Table 1.
+P.malariae was the most abundant non-falciparum parasite, 90.6% (175/193) infections presented as coinfections with another species. We did not find any P. vivax infection in our samples."
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+
+plas <- 
+  read_excel("Data/b.xlsx")
+
+plas <- 
+  plas %>% 
+  rename_all(list(~str_replace_all(tolower(.), "[ -]", "_")))
+
+n_partic <- 
+  plas %>%
+  mutate(np = str_detect(pid, "pid")) %>%
+  count(np)  
+
+  plas <-
+    plas %>% 
+    mutate(age_group = case_when(
+    age <= 5 ~ '1-5',
+    age >= 6 & age <= 10  ~ '6-10',
+    age >= 11  & age <= 15  ~ '11-15',
+    age >= 16 & age <= 20  ~ '16-20',
+    age >= 21 & age <= 25  ~ '21-25',
+    age >= 26 & age <= 30  ~ '26-30',
+    age >= 31 & age <= 35  ~ '31-35',
+    age >= 36 & age <= 40  ~ '36-40',
+    age >= 41 & age <= 50  ~ '41-50',
+    age >= 51 & age <= 60  ~ '51-60',
+    age >= 61 & age <= 70  ~ '61-70',
+    age >= 71 & age <= 80  ~ '71-80',
+    age >= 81 & age <= 96  ~ '81-96',
+    TRUE ~ 'other')) %>%
+    arrange(match(age_group, c("1-5","6-10", "11-15", "16-20","21-25","26-30",
+     "31-35","36-40", "41-50","51-60","61-70","71-80","81-96")))
+  
+
+pcr <- 
+  plas %>%
+  count(species.qpcr) %>%
+  arrange(match(species.qpcr, c("Pfal","Pmal","Poc","Pow", "Pfal + Pmal" ,
+      "Pfal + Poc","Pfal + Pow","Pmal + Poc", "Pfal + Pmal + Poc" , 
+      "Pfal + Pmal + Pow",
+      "Pfal + Poc + Pow","Pfal + Pmal + Poc + Pow"))) %>%
+mutate(perc = round(n * 100 / sum(n), 1),
+         res = paste0(n, " (", perc, "%)")) %>%
+  select(species.qpcr, res) %>%
+  slice(1:12)
+
+Published <- c("357 (43%)", "18 (2%)", "7 (0.8%)", "1 (0.1%)",  "123 (14.7%)", "21 (2.5%)", "18 (2.1%)", "1 (0.1%)",  "36 (4.3%)", "10 (1.1%)" ,
+             "4 (0.5%)",  "5 (0.6%)")
+
+tab <- 
+   pcr %>%
+  mutate(Published = c("357 (43%)", "18 (2%)", "7 (0.8%)", "1 (0.1%)",  "123 (14.7%)", "21 (2.5%)", "18 (2.1%)", "1 (0.1%)",  "36 (4.3%)", "10 (1.1%)" ,
+             "4 (0.5%)",  "5 (0.6%)"),
+         Discrepency = if_else(Published == res, "no","yes")) %>%
+  rename(Variables = species.qpcr, Submit = res)
+   
+kable(tab, caption = "Part 1 results")  
+
+```
+
+\newpage
+
+Tableaux pour observer car ne sont pas conforme a celui publié dans l'article (Table 2) page 4.
+
+```{r echo = FALSE}
+
+
+pf <- 
+  plas  %>%
+  filter(species.qpcr == "Pfal") %>%
+  count(age_group) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         "Pf(%)" = paste0(n, " (", perc, "%)")) %>%
+  select(age_group, "Pf(%)")
+  kable(pf)
+
+pm <- 
+  plas  %>%
+  filter(species.qpcr == "Pmal") %>%
+  count(age_group) %>%
+mutate(perc = round(n * 100 / sum(n), 1),
+         "Pm(%)" = paste0(n, " (", perc, "%)")) %>%
+  select(age_group, "Pm(%)")
+kable(pm)
+
+pw <- 
+  plas  %>%
+  filter(species.qpcr == "Pow") %>%
+  count(age_group) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         "Pow(%)" = paste0(n, " (", perc, "%)")) %>%
+  select(age_group, "Pow(%)")
+  kable(pw)
+
+pc <- 
+  plas  %>%
+  filter(species.qpcr == "Poc") %>%
+  count(age_group) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         "Poc(%)" = paste0(n, " (", perc, "%)")) %>%
+  select(age_group,"Poc(%)")
+  kable(pc)
+```
+
+\newpage
+
+Further analysis by qPCR revealed an unexpected complexity of
+infections and high prevalence of non-falciparum coinfections. In total 618/834 (74%) individuals were positive for 18 S plasmodial DNA, of these 553 (66.3%) were positive for P. falciparum, 193 (23%) for P. malariae,
+74 (8.9%) for P. ovale curtisi and 38 (4.6%) for P. ovale wallikeri. Parasitemia of individuals decreased with age
+(p<0.0001). Number of parasites per microliter was calculated with the help of a standard curve. The parasitemia of P. malariae positive individuals also decreased with age (p<0.0001). However, these data should
+not be over-interpreted as species-specific PCR was done after preamplification.
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+
+
+pfa <- 
+  plas  %>%
+  mutate(pfal = str_detect(species.qpcr, "Pfal")) %>%
+  count(pfal) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         Submit = paste0(n, " (", perc, "%)"),
+       Variables = pfal,
+       Variable = "Pfal positive") %>%
+  select(Variable, Submit) %>%
+  slice(2)
+
+pma <- 
+  plas  %>%
+  mutate(Variables = str_detect(species.qpcr, "Pmal")) %>%
+  count(Variables) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         Submit = paste0(n, " (", perc, "%)"),
+        Variable = "Pmal positive") %>%
+  select(Variable, Submit) %>%
+  slice(2)
+
+pov <- 
+  plas  %>%
+  mutate(Variables = str_detect(species.qpcr, "Poc")) %>%
+  count(Variables) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         Submit = paste0(n, " (", perc, "%)"),
+         Variable = "Poc positive") %>%
+  select(Variable, Submit) %>%
+  slice(2)
+
+powa <- 
+  plas  %>%
+  mutate(Variables = str_detect(species.qpcr, "Pow")) %>%
+  count(Variables) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         Submit = paste0(n, " (", perc, "%)"),
+         Variable = "Pow positive") %>%
+  select(Variable, Submit) %>%
+  slice(2)
+Published <- c("553 (66.3%)","193 (23%)", "74 (8.9%)", "38 (4.6%)")
+
+t <- bind_rows(pfa,pma,pov,powa)  %>%
+mutate(Published = c("553 (66.3%)","193 (23%)", "74 (8.9%)", "38 (4.6%)"),
+         Discrepency = if_else(Published == Submit, "no","yes"))
+kable(t, caption = "Part 2 results")
+```
+
+
+- CEDARO ID: NA
+- Date of report: 2019-10-21
+- Analysis performed by: Eddy Mbena
+- Analysis supervised by: Fabrice Mougeni & Bertrand Lell
+- Raw data supplied by: Woldearegai TG
+- Code repository:https://gitlab.com/MBENA/plasmodium.git
+- Local storage path: NAS
+
+

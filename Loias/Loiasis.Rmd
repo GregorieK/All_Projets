@@ -1,0 +1,448 @@
+---
+title: "CEDARO report: Behavioural and clinical predictors for Loiasis"
+
+header-includes:
+- \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+output:
+  
+  pdf_document: default
+  html_document: default
+  number_sections: true
+
+---
+
+# Background
+
+The “CERMEL Data Repository” (CEDARO) aims to archive data of all research projects performed at
+CERMEL. A detailed description of the repository is available from the CEDARO team (cedaro@cermel.org).
+Before archiving, a codebook and an anonmyized dataset are generated. In addition, a basic statistical analysis
+is performed to ensure that the data in the publication corresponds to the submitted dataset. Typically, only
+data to ensure that the numbers of the basic characteristics of the study population and of the outcomes are correct. Rarely would effect sizes, regression models etc. be verified.
+A report comparing the original published results with that of the CEDARO analysis is generated and sent
+to the investigator who submitted the data set. The CEDARO team will follow-up on any descripancies to
+make sure that the analysis and data are valid.
+
+# Publication
+
+**Reference**
+
+Mischlinger J, Veletzky L, Tazemda-Kuitsouc GB, Pitzinger P, Matsegui PB,
+Gmeiner M, Lagler H, Gebru T, Held J, Mordmüller B, Ramharter M. Behavioural and clinical predictors for Loiasis. J Glob Health. 2018 Jun;8(1):010413. 
+
+DOI: 10.7189/jogh.08.010413
+
+PubMed PMID : 29497506 
+
+PubMed-Central PMCID: PMC5827628
+
+**Abstract**
+
+"Loiasis is a vector-borne disease in Central and West Africa. While
+there is still uncertainty to what extent loiasis is responsible for population
+morbidity, individuals having both loiasis and onchocerciasis have a high risk
+of fatal encephalopathy when treatment (ie, ivermectin) for onchocerciasis is
+given. Therefore it is current policy that communities of high loiasis-burden
+are excluded from mass drug administration programmes of ivermectin. To
+address this treatment gap we present diagnostic scores, based on clinical and
+behavioural predictors that may help to rapidly identify sub-groups with loiasis within high-burden communities."
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+
+
+library(tidyverse)
+library(readstata13)
+library(knitr)
+
+```
+# Analyse
+
+"In total 947 participants were recruited with a median age of 22 years (interquartile range (IQR) 8-51) and a male/female ratio of 0.84. 289 out of 947 (30.5%) had loiasis according to our case definition and positivity for RAPLOA was the most frequent loiasis-defining characteristic (65.1%; 188/289)
+(Table 2). Prevalence of pruritus was 32.3% (306/947) in the overall study population and 67.2% (636/947) reported being regularly engaged in activities that involved exposure to the forest at least twice
+weekly. The sub-study assessing Calabar swelling recruited 213 participants (median age 16; IQR 7 - 40, male/female ratio of 0.90). 60/213 (28.2%) had loiasis."
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+
+lois <- read.dta13("data/dbloias.dta")
+
+n_partic <- 
+  lois  %>%
+  mutate(np = str_detect(id,"id")) %>%
+  count(np)  %>%
+  mutate(variable = "Participant",
+         res = as.character(n)) %>% 
+  select(variable, res)
+
+
+med_age <- 
+  lois %>% 
+  summarise(med = median(age),
+            q1 = quantile(age, 0.25),
+            q2 = quantile(age, 0.75),
+            res = paste0(med, " (", q1, " - ", q2, ")")) %>% 
+  mutate(variable = "Median age (range)") %>% 
+  select(variable, res)
+
+
+loisdef <- 
+  lois  %>%
+  count(eyewormmf) %>% 
+  mutate(perc = round( n * 100 / sum(n), 1),
+         res = paste0(n, " (", perc, "%)"),
+         variable = case_when(eyewormmf == "No" ~ "Loiasis (No)",
+                              eyewormmf == "Yes" ~ "Loiasis (Yes)")) %>% 
+  select(variable, res) %>%
+  slice(2)
+
+pos_raplo <- 
+  lois  %>%
+  count(mf,eyeworm) %>% 
+  slice(2:4) %>% 
+  mutate(perc = round( n * 100 / sum(n), 1),
+         res = paste0(n, " (", perc, "%)"),
+         variable = case_when(eyeworm == "Yes" ~ "RAPLOA +")) %>% 
+  select(variable, res) %>%
+  slice(1)
+
+pruri <- 
+  lois  %>%
+  group_by(itch) %>%
+  summarise(nb = n()) %>%
+  mutate(perc = round(nb*100 / sum(nb),1),
+         res = paste0(nb, " (", perc, "%)"),
+         variable = "Prevalence of pruritus") %>%
+  select(variable, res)  %>%
+  slice(2)
+
+twice <- 
+  lois  %>%
+  group_by(anyexposure) %>%
+  summarise(nb = n()) %>%
+  mutate(perc = round(nb*100 / sum(nb),1),
+         res = paste0(nb, " (", perc, "%)"),
+         variable = "Exposure to forest") %>%
+  select(variable, res) %>%
+  slice(2)
+
+calabsw_recr <- 
+  lois %>% 
+  mutate(calabsw = str_detect(edema, "edema")) %>% 
+  count(calabsw) %>%
+  mutate(variable = "Calabar swelling recruted",
+         res = as.character(n)) %>% 
+  select(variable, res) %>%
+  slice(1)
+
+calablois <- 
+  lois %>%
+  filter(edema %in% c("Yes","No")) %>%
+  count(eyewormmf)  %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+          res = paste0(n, " (", perc, "%)"),
+        variable = " Calabar swelling with loiasis") %>%
+  select(variable, res) %>%
+  slice(2)
+
+partext <- bind_rows(n_partic, med_age, loisdef, pos_raplo, pruri,
+                     twice,calabsw_recr, calablois) %>%
+  rename(Variables = variable , CEDARO = res)
+
+
+kable(partext, caption = "Section 1 Results")
+
+```
+
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+
+
+options(kableExtra.latex.load_packages = FALSE)
+library(kableExtra)
+
+
+lois <-
+  lois %>%
+  mutate(age_group = case_when(
+    age < 6 ~ '< 6',
+    age >= 6 & age <= 17  ~ '6-17',
+    age >= 18  & age <= 34  ~ '18-34',
+    age >= 35 & age <= 49  ~ '35-49',
+    age >= 50 & age <= 64  ~ '50-64',
+    age >= 65 ~ '65+',
+    TRUE ~ 'other'))
+med_age <- 
+  lois %>% 
+  summarise(med = median(age),
+            q1 = quantile(age, 0.25),
+            q2 = quantile(age, 0.75),
+            res = paste0(med, " (", q1, " - ", q2, ")")) %>% 
+  mutate(variable = "Median age (range)") %>% 
+  select(variable, res)
+
+
+med_age2 <- 
+  lois %>% 
+  filter(eyewormmf == "Yes") %>%
+  group_by(eyewormmf) %>%
+  summarise(med1 = median(age),
+            q3 = quantile(age, 0.25),
+            q4 = quantile(age, 0.75),
+            res = paste0(med1, " (", q3, " - ", q4, ")")) %>% 
+  mutate(variable = "Median age (range)") %>%
+  select(variable, res)
+
+med_age3 <- 
+  lois %>% 
+  filter(edema %in% c("No","Yes")) %>% 
+  summarise(med = median(age),
+            q3 = quantile(age, 0.25),
+            q4 = quantile(age, 0.75),
+            res = paste0(med, " (", q3, " - ", q4, ")")) %>% 
+  mutate(variable = "Median age (range)") %>% 
+  select(variable, res)
+
+age <- bind_cols(med_age, med_age2, med_age3) %>%
+  select(variable,res,res1,res2) %>%
+  rename(v1 = variable, v2 = res, v3 = res1, v4 = res2)
+
+sex1 <- 
+  lois  %>%
+  count(sex) %>% 
+  mutate(perc = round( n * 100 / sum(n), 1),
+         sex_loi = paste0(n, " (", perc, "%)"))  %>%  
+  select(sex, sex_loi) %>%
+  slice(2)
+
+sex2 <-  
+  lois %>%
+  filter(eyewormmf == "Yes") %>%
+  count(sex) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         sex_loi = paste0(n, " (", perc, "%)")) %>%
+  select(sex, sex_loi) %>%
+  slice(2)
+
+sex3 <-  
+  lois %>%
+  filter(edema %in% c("Yes","No")) %>%
+  count(sex) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         sex_loi = paste0(n, " (", perc, "%)")) %>%
+  select(sex, sex_loi) %>%
+  slice(2)
+
+sex <- bind_cols(sex1, sex2, sex3)  %>%
+    select(sex, sex_loi, sex_loi1, sex_loi2) %>%
+    rename(v1 = sex, v2 = sex_loi, v3 = sex_loi1, v4 = sex_loi2)
+
+cohoage <- 
+  lois  %>%
+  count(age_group) %>%
+  mutate(perc = round(n *100 / sum(n), 1),
+         res3 = paste0(n, " (", perc, "%)"),
+         var3 = age_group) %>%
+  select(var3, res3)
+
+
+loisage <- 
+  lois  %>%
+  filter(eyewormmf == "Yes") %>%
+  count(age_group) %>%
+  mutate(perc = round(n *100 / sum(n), 1),
+         res2 = paste0(n, " (", perc, "%)"),
+         var2 = age_group) %>%
+  select(var2, res2)
+
+cabage <- 
+  lois  %>%
+  filter(edema %in% c("Yes","No")) %>%
+  count(age_group) %>%
+  mutate(perc = round(n *100 / sum(n), 1),
+         res1 = paste0(n, " (", perc, "%)"),
+         var1 = age_group) %>%
+  select(var1, res1)
+
+p1 <- bind_cols(cohoage, loisage, cabage) %>%
+     select(var3, res3, res2, res1) %>%
+  rename(v1 = var3, v2 = res3, v3 = res2, v4 = res1)
+
+p2 <- bind_rows(age, p1)
+
+expo1 <-  
+  lois %>%
+  count(exposureforest) %>%
+  mutate(perc = round(n * 100 / sum(n),1),
+         cohort = paste0(n, " (", perc, "%)")) %>%
+  select(exposureforest, cohort)
+
+expo2 <-  
+  lois %>%
+  filter(eyewormmf == "Yes") %>%
+  count(exposureforest, eyewormmf) %>%
+  mutate(perc = round(n * 100 / sum(n),1),
+         loiasis = paste0(n, " (", perc, "%)")) %>%
+  select(exposureforest, loiasis)
+
+expo3 <-  
+  lois %>%
+  filter(edema %in% c("Yes","No")) %>%
+  count(exposureforest) %>%
+  mutate(perc = round(n * 100 / sum(n),1),
+         calaba = paste0(n, " (", perc, "%)")) %>%
+  select(exposureforest, calaba)
+
+ p3 <- bind_cols(expo1, expo2, expo3) %>%
+   select(exposureforest, cohort,loiasis,calaba) %>%
+   rename(v1 = exposureforest, v2 = cohort, v3 = loiasis, v4 = calaba)
+
+
+raplo1 <- 
+  lois %>%
+  count(eyeworm) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res1 = paste0(n, " (", perc, "%)")) %>%
+  select(eyeworm, res1) %>%
+  slice(2)
+
+raplo2 <- 
+  lois %>%
+  filter(eyeworm == "Yes") %>%
+  count(eyewormmf) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res2 = paste0(n, " (", perc, "%)"),
+         variable = "Positive") %>%
+  select(variable, res2)
+
+
+raplo3 <- 
+  lois %>%
+  filter(edema %in% c("Yes", "No")) %>%
+  count(eyeworm) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res3 = paste0(n, " (", perc, "%)"),
+         variable = "Positive") %>%
+  select(variable, res3) %>%
+  slice(2)
+
+raplo <- bind_cols(raplo1, raplo2, raplo3) %>%
+   select(variable, res1, res2, res3) %>%
+  rename(v1 = variable, v2 = res1, v3 = res2, v4 = res3)
+
+mf1 <- 
+  lois  %>%
+  count(mf) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res4 = paste0(n, " (", perc, "%)"),
+         variable = "Positive") %>%
+  select(variable, res4) %>%
+  slice(2)
+
+mf2 <- 
+  lois %>%
+  filter(eyewormmf == "Yes") %>%
+  count(mf) %>%
+  slice(2) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res5 = paste0(n, " (", perc, "%)")) %>%
+  select(mf, res5)
+
+mf3 <- 
+  lois %>%
+  filter(edema %in% c("Yes", "No")) %>%
+  count(mf) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res6 = paste0(n, " (", perc, "%)")) %>%
+  select(mf, res6) %>%
+  slice(2)
+
+microfilarea <- bind_cols(mf1, mf2, mf3) %>%
+  mutate(v1 = "Positive") %>%
+  rename(v2 = res4, v3 = res5, v4 = res6) %>%
+ select(v1, v2, v3, v4) 
+
+rapmf1 <- 
+  lois  %>%
+  count(eyewormmf) %>%
+  slice(2) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res7 = paste0(n, " (", perc, "%)"),
+         variable1 = eyewormmf)  %>%  
+  select(variable1, res7)
+
+raplomicrofilarea <- bind_cols(loisdef,rapmf1, calablois) %>%
+       mutate(v1 = "positive") %>%
+       rename(v2 = res, v3 = res7, v4 = res1) %>%
+       select(v1, v2, v3, v4) 
+
+prupos2 <- 
+  lois  %>%
+  filter(eyewormmf == "Yes") %>%
+  count(itch) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res8 = paste0(n, " (", perc, "%)")) %>%
+  select(itch, res8) %>%
+  slice(2)
+
+prupos3 <- 
+  lois %>%
+  filter(edema %in% c("Yes", "No")) %>%
+  count(itch) %>%
+  mutate(perc = round(n * 100 / sum(n), 1),
+         res9 = paste0(n, " (", perc, "%)")) %>%
+  select(itch, res9) %>%
+  slice(2)
+
+pruritus <- bind_cols(pruri,prupos2, prupos3) %>%
+  mutate(v1 = "positive") %>%
+  rename(v2 = res, v3 = res8, v4 = res9) %>%
+ select(v1, v2, v3, v4) 
+
+tab1 <- bind_rows(p2,p3, sex, raplo)
+tab2 <- bind_rows(microfilarea, raplomicrofilarea,pruritus)
+tab3 <- bind_rows(tab1, tab2) %>%
+  rename("Characteristics" = v1, "No.(column %)" = v2, "No.(row %)" = v3,
+         "No.(column %)" = v4)
+
+```
+
+\begin{landscape}
+
+```{r echo = FALSE, warning = FALSE}
+
+
+tab3 <- tab3[c(1, 2, 6, 3:5, 7, 12, 8:11, 13:16),]
+
+rownames(tab3) <- NULL
+
+
+tab3$Characteristics <- c("Median (IQR)","below 6" ,"6-17","18-34","35-49","50-64","65+","Male","None","Occasional",
+  "Frequent","Intensive","Positive","Positive","Positive","Positive")
+
+kable(tab3, "latex",longtable=T, booktabs = T, caption ="Section 1 results", align = "c") %>%
+kable_styling("striped", full_width = F) %>%
+add_header_above(c(" ","Total cohort (N = 947)","Loiasis (N = 289)",
+                   "Population of Calabar swelling sub-study (N = 213)")) %>%
+pack_rows("Age(years)", 1, 7, label_row_css = "background-color: #666; color: #fff;") %>%
+pack_rows("Sex",8,8,label_row_css = "background-color: #666; color: #fff;") %>%
+pack_rows("Exposure to forest",9, 12, label_row_css = "background-color: #666; color: #fff;") %>%
+  pack_rows("RAPLO", 13,13, label_row_css = "background-color: #666; color: #fff;") %>%
+pack_rows("Microfilareamia", 14,14, label_row_css = "background-color: #666; color: #fff;") %>%
+pack_rows("RAPLO or microfilareamia", 15,15, label_row_css = "background-color: #666; color: #fff;") %>%
+pack_rows("Pruritus", 16,16, label_row_css = "background-color: #666; color: #fff;")  
+ 
+
+```
+\end{landscape}
+
+
+
+- CEDARO ID: NA
+- Date of report: 2019-10-21
+- Analysis performed by: Eddy MBENA
+- Analysis supervised by: Fabrice Mougeni & Bertrand Lell
+- Raw data supplied by: Frieder Schaumburg
+- Code repository: https://gitlab.com/MBENA/loiasis
+- Local storage path: NAS
+

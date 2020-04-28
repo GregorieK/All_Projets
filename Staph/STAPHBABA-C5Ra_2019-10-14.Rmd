@@ -1,0 +1,362 @@
+---
+title: "CEDARO Analysis of STAPHBAB-C5R"
+output:
+  
+  pdf_document: default
+  html_document: default
+  number_sections: true
+---
+#  Background
+
+The "CERMEL Data Repository" (CEDARO) aims to archive data of all research projects performed at CERMEL. A detailed description of the repository is available from the CEDARO team (cedaro@cermel.org).
+Before archiving, a codebook and an anonmyized dataset are generated. In addition, a basic statistical analysis is performed to ensure that the data in the publication corresponds to the submitted dataset. Typically, only data from the abstract is verified, but it may also include other results from the publication. An analysis report comparing the original published results with that of the CEDARO analysis is generated and sent to the investigator who submitted the data set. The CEDARO team will follow-up on any descripancies to make sure that the analysis and data are valid.
+
+# Publication
+
+**Reference**
+
+Schaumburg F, Witten A, Flamen A, Stoll M, Alabi AS, Kremsner PG, Löffler B,
+Zipfel PF, Velavan TP, Peters G. Complement 5a Receptor Polymorphisms Are
+Associated With Panton-Valentine Leukocidin-positive Staphylococcus aureus
+Colonization in African Pygmies. Clin Infect Dis. 2019 Feb 15;68(5):854-856.
+
+DOI: 10.1093/cid/ciy666
+
+Pubmed ID:  30192927
+
+
+Pubmed Central ID : NA
+
+
+
+
+
+**Abstract**
+
+
+
+*Panton-Valentine leukocidin* (PVL) is common in African *Staphylococcus aureus* and can be associated with skin and soft tissue infection. PVL-positive S. aureus colonization is associated with a variant of complement receptor 5a, the cellular target of the lukS PVL subunit.
+
+
+
+# Analysis
+
+
+
+## Section 1
+
+"The recruited Babongo (n=107) had a median age of 13 years (range: 0.75–59) and a balanced ratio of females to males (50 vs 57, respectively). The overall colonization rate was 68.2% (n=73), with a clear age-dependent colonization pattern (with the highest colonization in teenagers). Volunteers were colonized in the nose (n=50), nose and throat (n=15), nose and wound (n=2), throat (n=5), and throat and wound (n=1). None of the wounds showed signs or symptoms of infection. Of the 73 carriers, 33 (45.2%) were colonized with PVL-positive S.aureus and 40 (54.8%) with a PVL-negative isolate."
+
+
+
+```{r  setup, include=FALSE, echo=FALSE, warning=FALSE}
+
+library(readxl)
+library(tidyverse)
+library(knitr)
+
+c5a <- read_excel("C:/Users/utilisateur/Desktop/CERMEL-WORK/DB-C5aR-results.xlsx", skip = 1)
+c5a<-rename(c5a, "PVL_colonization" = "PVL-colonization")
+rec <-
+  c5a %>% 
+  select(ID,Ethnie,Age,Sex) %>% 
+  mutate(babongo = str_detect(Ethnie, "Babongo")) %>%
+  filter(babongo)
+
+n_babongo <- sum(rec$babongo)
+
+med<-median(rec$Age)
+
+tab <- rec %>%
+  group_by(Sex)%>% 
+  summarise(n = n()) %>% 
+  mutate(perc = round(n*100 / sum(n)),
+         percent = paste0(n, " (", perc, "%)")) %>%
+  select(Sex, n_percent = percent)
+
+colonized <-
+  c5a %>% 
+  group_by(Colonization) %>% 
+  summarise(nb = n()) %>%
+  mutate(perc = round(nb*100 / sum(nb),1),
+         percent = paste0(nb, " (", perc, "%)")) %>%
+  select(Colonization, n_percent = percent)
+
+Vcol_nose<- c5a %>%
+  select(ID,Colonization_site) %>%
+  group_by(Colonization_site) %>%
+  summarise(n = n())  %>%
+  slice(1:6)
+
+
+Vcol_pvl <- c5a %>%
+  select(PVL_colonization) %>%
+  group_by(PVL_colonization) %>%
+  summarise(nb = n()) %>%
+  slice(2:3) %>%
+  mutate(perc = round(nb*100 / sum(nb), 1),
+         nb_perc = paste0(nb, " (", perc, "%)")) %>%
+  select(PVL_colonization, nb_perc) 
+
+names(c5a)[8:26] <-str_replace_all(names(c5a)[8:26], " ", "_")
+
+comp<- c5a[,c(7,19,21,25)]
+
+tab_comp <- comp %>%
+  select(PVL_colonization,SNP_rs11880097_ref_G) %>%
+  group_by(SNP_rs11880097_ref_G) %>%
+  summarise(n = n())
+tab_comp1 <- comp %>%
+  select(PVL_colonization,SNP_rs150649665_ref_C) %>%
+  group_by(SNP_rs150649665_ref_C) %>%
+  summarise(n = n())
+
+tab1<-data.frame(Variables = c("recruted_babongo", "median age"),
+                 CEDARO=c(n_babongo, med))
+
+
+colnames(tab)<-colnames(tab1)
+tab3<- rbind(tab,tab1)
+
+colnames(Vcol_nose)<-colnames(tab3)
+tab4<-rbind(Vcol_nose,tab3)
+
+colnames(Vcol_pvl)<-colnames(tab4)
+tab5<- rbind(Vcol_pvl,tab4)
+
+colnames(colonized)<-colnames(tab5)
+tab6<- rbind(colonized,tab5)
+
+tab6$Variables<- c("Colonization (no)","Colonization (yes)","PVL_colonized(no)",
+  "PVL_colonized (yes)","Nose","Nose and Throat","Throat","Wound","Wound and Nose", "Wound and Throat","Females","Males","Recruited","Median age")
+
+
+
+Published<- c("34 (31.8%)","73 (68.2%)","40 (54.8%)","33 (45.2%)"
+              ,50,15,5,1,2,1,"50 (47%)","57 (53%)", 107,13) 
+
+tab_all <- tab6%>%
+  mutate(Published = c("34 (31.8%)", "73 (68.2%)", "40 (54.8%)", "33 (45.2%)"
+                       ,50,15,5,1,2,1,"50 (47%)","57 (53%)", 107,13),
+         Discrepancy = if_else(Published == CEDARO,"no","yes"))
+
+tab_all<-tab_all[c(13,14,11,12,1,2,3,4,5,6,7,8,9,10),]
+tab_all$CEDARO[2] <- "13 (0.75–59)"
+tab_all$Published[2] <- "13 (0.75–59)"
+
+```
+\newpage
+```{r  echo=FALSE}
+
+kable(tab_all, caption = "Section 1 results")
+
+```
+
+# Section 2
+
+"After removing duplicate isolates, the final dataset consisted of 85 *S.aureus* isolates. The predominant ST were ST152 (n = 26,73.1% PVL-positive), ST2788 (n=20, 5% PVL-positive isolates), and ST6 (n = 8, no PVL-positive isolates). *Spa* types associated with ST152 were t127 (n = 7), t355 (n = 14), t2784 (n = 2), and
+t3636 (n = 3). Other STs were less diverse in terms of spa types, such as ST2788 (t189, n = 20) and ST6 (t1476, n = 8).
+
+The isolates were resistant to penicillin (n=64, 75.3%),
+trimethoprim/sulfamethoxazol (n = 14, 16.5%), and tetracycline (n = 11, 12.9%)."
+
+
+```{r  echo=FALSE}
+
+
+DB_SA <- read_excel("C:/Users/utilisateur/Desktop/CERMEL-WORK/CEDARO_analyse1/DB_SA.xlsx")
+
+
+n_SA <- 
+  DB_SA %>%
+  select(ST) %>%
+  mutate(n_ST=str_detect(ST,"ST"))
+
+n_Isol_SA <- sum(n_SA$n_ST)
+
+pr_ST <- 
+  DB_SA %>% 
+  group_by(ST) %>% 
+  summarise(nb = n()) %>% 
+  arrange(desc(nb)) %>% 
+  slice(1:3)
+
+
+ST152 <- 
+  DB_SA   %>%
+  group_by(ST,PVL)  %>%
+  summarise(nb = n()) %>%
+  mutate(perc = round(nb*100 / sum(nb),1),
+         nb_percent = paste0(nb=26, " (", perc, "%)"))%>%
+  select(ST,PVL,nb_percent)  %>%
+  filter(ST == "ST152")  %>% 
+  slice(-1)
+
+ST2788 <- 
+  DB_SA   %>%
+  select(PVL,site,ST) %>%
+  mutate(ST2788=str_detect(ST,"ST2788")) %>%
+  filter(ST2788) %>%
+  group_by(PVL) %>%
+  summarise(nb = n()) %>%
+  mutate(perc = round(nb*100 / sum(nb)),
+         nb_percent = paste0(nb=20, " (", perc, "%)"))%>%
+  select(PVL,nb_percent)  %>%
+  slice(-1)
+
+
+ST6 <-   
+  DB_SA  %>% 
+  select(PVL,site,ST) %>%
+  mutate(ST6= str_detect(ST,"ST6")) %>%
+  filter(ST6) %>%
+  slice(-2) %>%
+  group_by(PVL) %>% 
+  summarise(n=n()) 
+
+
+spa_type <- 
+  DB_SA %>% 
+  group_by(spa) %>% 
+  summarise(nb = n()) %>%
+  filter(spa %in% c("t127", "t355", "t2784","t3636","t189","t1476"))
+
+penic <-  DB_SA %>%
+  select(site,Benzylpenicillin) %>%
+  group_by(Benzylpenicillin) %>%
+  summarise(nb = n())  %>%
+  mutate(perc = round(nb*100 / sum(nb),1),
+         percent = paste0(nb, " (", perc, "%)"))%>%
+  select(Benzylpenicillin, n_percent = percent) %>%
+  slice(-2)
+
+trimetho<-  
+  DB_SA %>%
+  select(site,Cotrim) %>%
+  group_by(Cotrim) %>%
+  summarise(nb = n())  %>%
+  mutate(perc = round(nb*100 / sum(nb),1),
+         percent = paste0(nb, " (", perc, "%)")) %>%
+  select(Cotrim, n_percent = percent) %>%
+  slice(-2)
+
+
+tetra <-  
+  DB_SA %>%
+  select(site,Tetracyclin) %>%
+  group_by(Tetracyclin) %>%
+  summarise(nb = n())  %>%
+  mutate(perc = round(nb*100 / sum(nb),1),
+         percent = paste0(nb, " (", perc, "%)")) %>%
+  select(Tetracyclin, n_percent = percent) %>%
+  slice(-2)
+
+
+Tab_iso <- data.frame(Variables="Number of isolates",
+                      CEDARO=n_Isol_SA)
+colnames(ST6) <- colnames(Tab_iso)
+iso1 <- rbind(ST6,Tab_iso)
+colnames(ST2788) <- colnames(iso1)
+iso2 <- rbind(ST2788,iso1)
+ST152<- ST152[-1]
+colnames(ST152) <- colnames(iso2)
+iso3 <- rbind(ST152,iso2)
+colnames(spa_type) <- colnames(iso3)
+iso4 <- rbind(spa_type,iso3)
+colnames(penic) <- colnames(iso4)
+iso5 <- rbind(penic,iso4)
+colnames(trimetho) <- colnames(iso5)
+iso6 <- rbind(trimetho,iso5)
+colnames(tetra) <- colnames(iso6)
+Tab_fin <- rbind(tetra,iso6)
+Tab_fin <- Tab_fin[c(13,10,11,12,4,8,7,9,6,5,3,2,1),]
+
+Tab_fin$Variables <- c("Number of isolates","ST152 (PVL-positive)",
+                       "ST2788 (PVL-positive isolates)","ST6 (no PVL-positive isolates)", "t127", "t355", "t2784", "t3636", "t189", "t1476", "Resistant to penicillin", " Resistant to trimethoprim","Resistant to tetracyline")
+
+Published <- c("85","26 (73.1%)","20 (5%)","8","7","14","2","3","20","8",
+               "64 (75.3%)","14 (16.5%)","11 (12.9%)")
+
+Final_tab <- Tab_fin  %>%
+  mutate(Published= c("85","26 (73.1%)","20 (5%)","8","7","14","2","3","20","8",
+                      "64 (75.3%)","14 (16.5%)","11 (12.9%)"),
+         Discrepancy = if_else(Published == CEDARO,"no","yes"))
+
+kable(Final_tab , caption = "Section 2 results")
+
+
+```
+
+```{r  warning=FALSE, message=FALSE, echo=FALSE}
+
+SNPs_PVL <- read_csv("C:/Users/utilisateur/Desktop/CERMEL-WORK/CEDARO_analyse1/SNPs_PVL.csv")
+SNPs_PVL <- SNPs_PVL[-1] 
+newtab <- SNPs_PVL %>% 
+  filter(SNPs %in% c("SNP_rs11880097_ref_G", 
+                     "SNP_rs150649665_ref_C", "SNP_rs187635721_ref_G"))
+
+```
+\newpage
+
+# Section 3
+
+```{r  echo=FALSE, message=FALSE}
+
+options(kableExtra.latex.load_packages = FALSE)
+library(kableExtra)
+
+base_modif <- read_excel("C:/Users/utilisateur/Desktop/CERMEL-WORK/base_modif.xlsx")
+Pub.PVL.no <- base_modif[3]
+Published1_char <- Pub.PVL.no
+
+Pub.PVL.no <- as.numeric(c("17", "3", "11","53", "21","9",
+                           "1", "67", "7" , "30", "52", "23","6", "12", "3" ))
+new_all1<- 
+  newtab  %>%
+  mutate(Pub.PVL.no = Pub.PVL.no,
+         Discrepancy.PVL.no = if_else(Pub.PVL.no== CEDARO_PVL_no,"no","yes"))
+
+
+Pub2.PVL.yes <- base_modif[2]
+Published2_char <- c(Pub2.PVL.yes)
+Pub.PVL.yes <- as.numeric(c("2","0","2","54","26","1", 
+                            "0", "63", "1", "31", "56","27","2", "2","0" ))
+new_all2 <- new_all1 %>%
+  mutate(Pub.PVL.yes = Pub.PVL.yes,
+         Discrepancy.PVL.yes = if_else(Pub.PVL.yes == CEDARO_PVL_yes,"no","yes"))
+
+cedaro_comp <- new_all2 %>% 
+  select(SNPs, genotype, CEDARO_PVL_no, Pub.PVL.no, 
+         Discrepancy.PVL.no, CEDARO_PVL_yes, Pub.PVL.yes,Discrepancy.PVL.yes)
+
+names(cedaro_comp) <- c("SNPs", "Genotype", "CEDARO", "Publ. ", "Discrep. ",
+                        "CEDARO", "Publ.", "Discrep.")
+
+cedaro_comp <- cedaro_comp[c(5,3,2,4,1,10,9,7,8,6,12,13,15,11,14),]
+
+cedaro_comp <- cedaro_comp[,c(1,2,6,7,8,3,4,5)]
+
+kable(cedaro_comp, "latex",longtable=T, booktabs = T, caption ="Section 3 results", align = "c") %>%
+kable_styling(c("striped", "bordered")) %>%
+add_header_above(c(" "=2, "yes" = 3, "no" = 3)) %>%
+add_header_above(c(" "=2, "PVL positive S.aureus" = 6)) #%>%
+ #footnote(general = "Publ = In publication ; Discrep =   Discrepancy")
+
+```
+
+# Repository details
+
+
+- CEDARO acronym: STAPHBAB-C5R
+- CEDARO ID: NA
+- Date of report: 2019-10-11
+- Analysis performed by: Eddy Mbena
+- Analysis supervised by: Fabrice Mougeni & Bertrand Lell
+- Raw data supplied by: Frieder Schaumburg
+- Code repository: https://gitlab.com/MBENA/staphbab-c5r
+- Local storage path: NAS
+
+  
+
+
+
